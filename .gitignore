@@ -1,0 +1,28 @@
+# Local environment secrets
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Downloads folder (local artifacts)
+scrapper/downloads/
+
+# db-schemas (Database schema files)
+scrapper/db-schemas/
+

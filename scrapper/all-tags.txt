@@ -1,0 +1,145 @@
+2-SAT
+Activity Selection
+Arithmetic Progression
+Backtracking
+Basic Probability
+Bellman-Ford
+Binary Index Tree (BIT)
+Binary Lifting
+Binary Optimization
+Binary Search
+Binary Search Tree
+Binary Tree
+Bipartite Graph
+Bit Optimization
+Bitmask
+Bitmask DP
+Bitmask Enumeration
+Bounded Knapsack Problem
+Breadth First Search (BFS)
+Bridge
+Broken Profile DP
+Brute Force
+Catalan Number
+Combination
+Combinations Generation
+Control flow
+Counting Sort
+Cycle
+Data Structure
+Depth First Search (DFS)
+Deque
+Difference
+Digit DP
+Dijkstra
+Directed Graph
+Discretization
+Disjoint Sets Union
+Divide and Conquer
+Dynamic Programming (DP)
+Enumeration
+Eulerian Circuit
+Eulerian Path
+Expected Value
+Exponentiation by Squaring
+Extended Euclidean Algorithm
+Fermat's Little Theorem
+Flood-fill
+Floyd-Warshall
+Funtional Graph
+Game Theory
+Geometric Progression
+Geometry
+Graph
+Graph Representation
+Greatest Common Divisor
+Greedy
+Grid Traversal
+Grundy game
+hamiltonian Path
+Hardware Optimization
+Harmonic Series
+Hash
+Havel-Hakimi
+Heap
+Huffman Coding
+Inclusion-Exclusion
+Interval Scheduling
+Inversion
+Kadane’s Algorithm
+Knapsack Problem
+Knuth-Morris-Pratt Algorithm
+K Sum Problem
+Lazy Tag
+Least Common Multiple
+Linear Search
+Linked-list
+Logarithms
+Longest Increasing Subsequence (LIS)
+Lowest Common Ancestor (LCA)
+Lowest Common Ancestor（LCA）
+map
+Matrix
+Matrix Traversal
+Maximum flow
+Meet in the Middle
+Merge Sort
+Minimum cut
+Minimum Spanning Tree (MST)
+Modular Arithmetic
+Modular Inverse
+Monotonic Stack
+next_permutation
+Nim game
+Optimization Techniques
+Ordered-set
+Pattern Recognition
+pb_ds
+Permutations Generation
+Prefix Sum
+Prime Factorization
+priority_queue
+Probability
+Pruning
+Queue
+Quick Sort
+Rabin-Karp Algorithm
+Range DP
+Recursion
+Rerooting DP
+Rollback
+rope
+Searching
+Segment Tree
+set/multiset
+Sieve of Eratosthenes
+Sliding Window
+Small-to-large Merging
+Sorting
+Sparse Table
+Spiral Traversal
+stack
+String
+String Hashing
+String Matching
+Strongly Connected Components (SCC)
+Subarray Problems
+Subsets Generation
+Sweep Line
+Tarjan
+Ternary Search
+Topological Sort
+Treap
+Tree Basics
+Tree Centroid
+Tree Diameter
+Tree Flatten
+Tree Hash
+Tree Traversals
+Trie
+Two Pointers
+Undirected Graph
+Unweighted Graph
+Warnsdorff's Algorithm
+Weighted Graph
+Z-algorithm
