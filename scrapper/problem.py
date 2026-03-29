@@ -118,6 +118,7 @@ class ProblemRecord:
 	input_description: str
 	output_description: str
 	constraints: list[str] = field(default_factory=list)
+	constraints_html: str = ""
 	example_input: str = ""
 	example_output: str = ""
 	tags: list[str] = field(default_factory=list)
@@ -125,7 +126,7 @@ class ProblemRecord:
 	slug: str = ""
 
 	def to_dict(self):
-		constraints_text = "\n".join(self.constraints) if self.constraints else ""
+		constraints_text = self.constraints_html.strip() if self.constraints_html else ("\n".join(self.constraints) if self.constraints else "")
 		return {
 			"id": self.slug,
 			"task_id": self.task_id,
@@ -145,6 +146,52 @@ class ProblemRecord:
 			"tags": self.tags,
 			"scraped_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
 		}
+
+
+def _extract_section_html(driver, md_block):
+	"""Split .md content into section HTML chunks to preserve MathML/KaTeX markup."""
+	sections = driver.execute_script(
+		"""
+		const root = arguments[0];
+		const labels = new Set(["input", "output", "constraints", "example", "tags"]);
+		const sections = { statement: [], input: [], output: [], constraints: [], example: [], tags: [] };
+		let current = "statement";
+
+		function normalize(text) {
+			return (text || "").trim().toLowerCase().replace(/:\s*$/, "");
+		}
+
+		function labelFromNode(node) {
+			if (!node || node.nodeType !== 1) return null;
+			const text = normalize(node.textContent);
+			if (labels.has(text)) return text;
+
+			const strong = node.querySelector("strong");
+			if (!strong) return null;
+			const strongText = normalize(strong.textContent);
+			if (labels.has(strongText) && strongText === text) {
+				return strongText;
+			}
+			return null;
+		}
+
+		for (const child of root.children) {
+			const label = labelFromNode(child);
+			if (label) {
+				current = label;
+				continue;
+			}
+			sections[current].push(child.outerHTML);
+		}
+
+		for (const key of Object.keys(sections)) {
+			sections[key] = sections[key].join("\\n").trim();
+		}
+		return sections;
+		""",
+		md_block,
+	)
+	return sections if isinstance(sections, dict) else {}
 
 
 def scrape_problem_text(driver, problem_url):
@@ -206,6 +253,7 @@ def scrape_problem_record(driver, problem_url, tag_wait_seconds=0, debug_tags=Fa
 	if not md_blocks:
 		raise ValueError(f"Could not find problem body (.md) on page: {problem_url}")
 	statement_text = md_blocks[0].text
+	section_html = _extract_section_html(driver, md_blocks[0])
 
 	tags = extract_tags_from_page(driver, problem_title=title)
 	if debug_tags:
@@ -222,6 +270,22 @@ def scrape_problem_record(driver, problem_url, tag_wait_seconds=0, debug_tags=Fa
 		f"{statement_text}"
 	)
 	record = parse_problem_text(synthetic, source_url=problem_url)
+
+	# Preserve section HTML so formulas and rich markup are not flattened to plain text.
+	statement_html = (section_html.get("statement") or "").strip()
+	input_html = (section_html.get("input") or "").strip()
+	output_html = (section_html.get("output") or "").strip()
+	constraints_html = (section_html.get("constraints") or "").strip()
+
+	if statement_html:
+		record.statement = statement_html
+	if input_html:
+		record.input_description = input_html
+	if output_html:
+		record.output_description = output_html
+	if constraints_html:
+		record.constraints_html = constraints_html
+
 	if tags:
 		record.tags = tags
 	return record
