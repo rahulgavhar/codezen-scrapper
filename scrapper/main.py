@@ -104,7 +104,7 @@ def save_problem_record(problem, upload, problems_bucket, testcases_bucket, test
 		created_by=created_by,
 	)
 	problem_id = problem_record.get("id")
-	print(f"✓ Problem inserted with ID: {problem_id}")
+	print(f"[OK] Problem inserted with ID: {problem_id}")
 	
 	# Insert samples into problem_samples table
 	# If multiple examples exist, insert each as a separate sample
@@ -120,7 +120,7 @@ def save_problem_record(problem, upload, problems_bucket, testcases_bucket, test
 					input_text=example_input,
 					output_text=example_output,
 				)
-		print(f"✓ {len(problem.examples)} sample(s) inserted")
+		print(f"[OK] {len(problem.examples)} sample(s) inserted")
 	elif problem.example_input and problem.example_output:
 		# Fallback for single example (backward compatibility)
 		print("Inserting sample into database...")
@@ -132,7 +132,7 @@ def save_problem_record(problem, upload, problems_bucket, testcases_bucket, test
 			input_text=problem.example_input,
 			output_text=problem.example_output,
 		)
-		print(f"✓ Sample inserted")
+		print(f"[OK] Sample inserted")
 	
 	# Upload testcase files and create references in database
 	for pair in testcase_pairs:
@@ -179,9 +179,9 @@ def save_problem_record(problem, upload, problems_bucket, testcases_bucket, test
 			problem_id=problem_id,
 			tags=problem_payload["tags"],
 		)
-		print(f"✓ Tags linked to problem")
+		print(f"[OK] Tags linked to problem")
 
-	print(f"✓ Problem fully inserted into database with testcases and tags")
+	print(f"[OK] Problem fully inserted into database with testcases and tags")
 
 
 def scrape_tests_for_problem(driver, problem):
