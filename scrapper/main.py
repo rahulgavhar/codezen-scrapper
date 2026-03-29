@@ -106,8 +106,23 @@ def save_problem_record(problem, upload, problems_bucket, testcases_bucket, test
 	problem_id = problem_record.get("id")
 	print(f"✓ Problem inserted with ID: {problem_id}")
 	
-	# Insert sample testcase into problem_samples table
-	if problem.example_input and problem.example_output:
+	# Insert samples into problem_samples table
+	# If multiple examples exist, insert each as a separate sample
+	if problem.examples:
+		print(f"Inserting {len(problem.examples)} sample(s) into database...")
+		for idx, (example_input, example_output) in enumerate(problem.examples, start=1):
+			if example_input and example_output:
+				insert_problem_sample_to_db(
+					supabase_url=supabase_url,
+					supabase_key=supabase_key,
+					problem_id=problem_id,
+					sample_index=idx,
+					input_text=example_input,
+					output_text=example_output,
+				)
+		print(f"✓ {len(problem.examples)} sample(s) inserted")
+	elif problem.example_input and problem.example_output:
+		# Fallback for single example (backward compatibility)
 		print("Inserting sample into database...")
 		insert_problem_sample_to_db(
 			supabase_url=supabase_url,

@@ -13,6 +13,59 @@ from utils import slugify
 CSES_BASE_URL = "https://cses.fi"
 
 
+def categorize_difficulty(success_rate):
+	"""Categorize problem difficulty based on success rate.
+	
+	- hard: < 75% success rate (challenging)
+	- medium: 75-85% success rate (moderate challenge)
+	- easy: > 85% success rate (most solve)
+	"""
+	if success_rate > 85:
+		return "easy"
+	elif success_rate >= 75:
+		return "medium"
+	else:
+		return "hard"
+
+
+def scrape_problem_stats(driver, task_id):
+	"""Scrape problem stats page to extract difficulty metrics.
+	
+	Returns a dict with success_rate and calculated difficulty.
+	"""
+	if not task_id:
+		return {"success_rate": 0.0, "difficulty": "medium"}
+	
+	stats_url = f"{CSES_BASE_URL}/problemset/stats/{task_id}/"
+	try:
+		driver.get(stats_url)
+		time.sleep(1)
+		
+		# Extract success rate from summary table
+		summary_rows = driver.find_elements(By.CSS_SELECTOR, "table.summary-table tr")
+		success_rate = 0.0
+		
+		for row in summary_rows:
+			cells = row.find_elements(By.CSS_SELECTOR, "td")
+			if len(cells) >= 2:
+				label = cells[0].text.strip()
+				value = cells[1].text.strip()
+				
+				if "success rate" in label.lower():
+					# Parse percentage (e.g., "92.56%")
+					match = re.search(r"([\d.]+)", value)
+					if match:
+						success_rate = float(match.group(1))
+					break
+		
+		difficulty = categorize_difficulty(success_rate)
+		return {"success_rate": success_rate, "difficulty": difficulty}
+	
+	except Exception as e:
+		print(f"Warning: Could not scrape stats for task {task_id}: {e}")
+		return {"success_rate": 0.0, "difficulty": "medium"}
+
+
 def _normalize_tag_values(values):
 	cleaned = []
 	seen = set()
@@ -121,9 +174,11 @@ class ProblemRecord:
 	constraints_html: str = ""
 	example_input: str = ""
 	example_output: str = ""
+	examples: list[tuple] = field(default_factory=list)
 	tags: list[str] = field(default_factory=list)
 	source_url: str = ""
 	slug: str = ""
+	difficulty: str = "medium"
 
 	def to_dict(self):
 		constraints_text = self.constraints_html.strip() if self.constraints_html else ("\n".join(self.constraints) if self.constraints else "")
@@ -144,6 +199,7 @@ class ProblemRecord:
 				"output": self.example_output,
 			},
 			"tags": self.tags,
+			"difficulty": self.difficulty,
 			"scraped_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
 		}
 
@@ -286,6 +342,13 @@ def scrape_problem_record(driver, problem_url, tag_wait_seconds=0, debug_tags=Fa
 	if constraints_html:
 		record.constraints_html = constraints_html
 
+	# Scrape difficulty from stats page
+	task_id = extract_task_id_from_url(problem_url)
+	if task_id:
+		stats = scrape_problem_stats(driver, task_id)
+		record.difficulty = stats.get("difficulty", "medium")
+		print(f"Problem {title}: success_rate={stats.get('success_rate', 0):.2f}%, difficulty={record.difficulty}")
+
 	if tags:
 		record.tags = tags
 	return record
@@ -305,9 +368,19 @@ def build_tests_url(task_id):
 def _section_indices(lines):
 	labels = ["Input", "Output", "Constraints", "Example", "Tags"]
 	indices = {}
+	example_indices = {}
+	
 	for idx, line in enumerate(lines):
 		if line in labels and line not in indices:
 			indices[line] = idx
+		# Detect Example 1, Example 2, etc. (numbered examples)
+		if re.match(r"^Example\s*\d+$", line, re.IGNORECASE):
+			example_indices[line] = idx
+	
+	# Store numbered examples in order (if any detected)
+	if example_indices:
+		indices["Examples"] = example_indices
+	
 	return indices
 
 
@@ -338,6 +411,31 @@ def _extract_example(example_lines):
 		example_output = _clean_block(example_lines[output_start + 1 :])
 
 	return example_input, example_output
+
+
+def _extract_multiple_examples(lines, example_indices, tags_idx):
+	"""Extract all numbered examples (Example 1, Example 2, etc.) from lines.
+	
+	Returns list of (input, output) tuples.
+	"""
+	examples = []
+	sorted_examples = sorted(example_indices.items(), key=lambda x: x[1])
+	
+	for i, (example_label, start_idx) in enumerate(sorted_examples):
+		# Find end of this example (start of next section or end of lines)
+		if i + 1 < len(sorted_examples):
+			end_idx = sorted_examples[i + 1][1]
+		elif tags_idx is not None:
+			end_idx = tags_idx
+		else:
+			end_idx = len(lines)
+		
+		example_lines = lines[start_idx + 1 : end_idx]
+		example_input, example_output = _extract_example(example_lines)
+		if example_input and example_output:
+			examples.append((example_input, example_output))
+	
+	return examples
 
 
 def parse_problem_text(raw_text, source_url=""):
@@ -372,7 +470,7 @@ def parse_problem_text(raw_text, source_url=""):
 		raise ValueError("Could not parse problem title from source text.")
 
 	indices = _section_indices(lines)
-	required_sections = ["Input", "Output", "Constraints", "Example"]
+	required_sections = ["Input", "Output", "Constraints"]
 	missing = [name for name in required_sections if name not in indices]
 	if missing:
 		raise ValueError("Missing sections in problem text: " + ", ".join(missing))
@@ -387,15 +485,39 @@ def parse_problem_text(raw_text, source_url=""):
 	input_lines = lines[indices["Input"] + 1 : indices["Output"]]
 	output_lines = lines[indices["Output"] + 1 : indices["Constraints"]]
 
-	example_end = indices.get("Tags", len(lines))
-	constraints_lines = lines[indices["Constraints"] + 1 : indices["Example"]]
-	example_lines = lines[indices["Example"] + 1 : example_end]
-	tags_lines = lines[indices["Tags"] + 1 :] if "Tags" in indices else []
-
-	example_input, example_output = _extract_example(example_lines)
+	# Initialize example variables
+	example_input = ""
+	example_output = ""
+	examples = []
+	
+	# Handle Examples (both single "Example" section and numbered "Example 1", "Example 2", etc.)
+	tags_idx = indices.get("Tags")
+	if "Examples" in indices and indices["Examples"]:
+		# Multiple numbered examples (Example 1, Example 2, etc.)
+		example_end = tags_idx if tags_idx else len(lines)
+		constraints_lines = lines[indices["Constraints"] + 1 : min(indices["Examples"][list(indices["Examples"].keys())[0]], example_end)]
+		tags_lines = lines[tags_idx + 1 :] if tags_idx else []
+		examples = _extract_multiple_examples(lines, indices["Examples"], tags_idx)
+		# Set first example as primary
+		if examples:
+			example_input, example_output = examples[0]
+	elif "Example" in indices:
+		# Single "Example" section
+		example_end = tags_idx if tags_idx else len(lines)
+		constraints_lines = lines[indices["Constraints"] + 1 : indices["Example"]]
+		example_lines = lines[indices["Example"] + 1 : example_end]
+		tags_lines = lines[tags_idx + 1 :] if tags_idx else []
+		example_input, example_output = _extract_example(example_lines)
+		examples = [(example_input, example_output)] if example_input and example_output else []
+	else:
+		# No example section
+		example_end = tags_idx if tags_idx else len(lines)
+		constraints_lines = lines[indices["Constraints"] + 1 : example_end]
+		tags_lines = lines[tags_idx + 1 :] if tags_idx else []
+	
 	tags = [line.strip() for line in tags_lines if line.strip() and "show problem tags" not in line.lower()]
 
-	return ProblemRecord(
+	record = ProblemRecord(
 		task_id=extract_task_id_from_url(source_url),
 		title=title,
 		time_limit=time_limit,
@@ -406,10 +528,16 @@ def parse_problem_text(raw_text, source_url=""):
 		constraints=[line.strip() for line in constraints_lines if line.strip()],
 		example_input=example_input,
 		example_output=example_output,
+		examples=examples,
 		tags=tags,
 		source_url=source_url,
 		slug=slugify(title),
 	)
+	
+	return record
+
+
+
 
 
 

@@ -51,7 +51,7 @@ def insert_problem_to_db(supabase_url, supabase_key, problem_data, created_by):
 	payload = {
 		"title": problem_data.get("title", ""),
 		"slug": problem_data.get("slug", ""),
-		"difficulty": "medium",  # Default, can be updated later
+		"difficulty": problem_data.get("difficulty", "medium"),
 		"description": problem_data.get("statement_text", ""),
 		"input_format": problem_data.get("input_section", ""),
 		"output_format": problem_data.get("output_section", ""),
