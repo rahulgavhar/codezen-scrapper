@@ -1,4 +1,5 @@
 import json
+import time
 
 import requests
 
@@ -11,13 +12,25 @@ def upload_bytes(supabase_url, supabase_key, bucket, object_path, content_bytes,
 		"x-upsert": "true",
 		"Content-Type": content_type,
 	}
-	response = requests.post(endpoint, headers=headers, data=content_bytes, timeout=30)
-	if response.status_code >= 400:
-		raise RuntimeError(
-			f"Supabase upload failed for {bucket}/{object_path}: "
-			f"{response.status_code} {response.text}"
-		)
-	return response.json() if response.text else {"status": "ok"}
+
+	# Retry logic with exponential backoff
+	max_retries = 3
+	for attempt in range(max_retries):
+		try:
+			response = requests.post(endpoint, headers=headers, data=content_bytes, timeout=30)
+			if response.status_code >= 400:
+				raise RuntimeError(
+					f"Supabase upload failed for {bucket}/{object_path}: "
+					f"{response.status_code} {response.text}"
+				)
+			return response.json() if response.text else {"status": "ok"}
+		except requests.exceptions.ConnectionError as e:
+			if attempt < max_retries - 1:
+				wait_time = 2 ** attempt  # 1s, 2s, 4s
+				print(f"Connection error uploading {object_path}, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+				time.sleep(wait_time)
+			else:
+				raise
 
 
 def upload_problem_json(supabase_url, supabase_key, bucket, object_path, payload):
@@ -213,3 +226,5 @@ def _parse_memory_limit(memory_limit_str):
 	if match:
 		return int(match.group(1))
 	return 256  # Default 256 MB
+
+

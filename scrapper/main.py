@@ -215,6 +215,7 @@ def main():
 	parser.add_argument("--tests-url", default="", help="CSES tests URL (if omitted, derived from task id)")
 	parser.add_argument("--all-problems", action="store_true", help="Scrape all problems from the problem list page")
 	parser.add_argument("--limit", type=int, default=0, help="Limit number of problems when using --all-problems")
+	parser.add_argument("--offset", type=int, default=0, help="Skip first N problems (for resuming)")
 	parser.add_argument("--raw-text-file", default="", help="Path to text file containing problem content")
 	parser.add_argument("--cses-username", default="", help="CSES username (defaults to CSES_USERNAME env)")
 	parser.add_argument("--cses-password", default="", help="CSES password (defaults to CSES_PASSWORD env)")
@@ -265,8 +266,14 @@ def main():
 				problem_urls = problem_urls[: args.limit]
 
 			print(f"Found problems: {len(problem_urls)}")
-			for index, problem_url in enumerate(problem_urls, start=1):
-				print(f"[{index}/{len(problem_urls)}] Scraping: {problem_url}")
+
+			# Skip first N problems if offset is specified
+			if args.offset > 0:
+				problem_urls = problem_urls[args.offset:]
+				print(f"Skipping first {args.offset} problems, starting from index {args.offset + 1}")
+
+			skipped_count = args.offset
+			for index, problem_url in enumerate(problem_urls, start=args.offset + 1):
 				try:
 					problem = scrape_problem_record(
 						driver,
@@ -274,6 +281,8 @@ def main():
 						tag_wait_seconds=args.tag_wait_seconds,
 						debug_tags=args.debug_tags,
 					)
+
+					print(f"[{index}/{len(problem_urls) + args.offset}] Scraping: {problem_url}")
 					pairs = scrape_tests_for_problem(driver, problem)
 				except Exception as exc:
 					print(f"Skipping {problem_url} due to error: {exc}")
@@ -290,6 +299,8 @@ def main():
 				)
 				if not args.keep_local:
 					cleanup_local_downloads()
+
+			print(f"\nCompleted scraping {len(problem_urls)} problems")
 		finally:
 			driver.quit()
 		return
