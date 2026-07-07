@@ -26,3 +26,4 @@ scrapper/downloads/
 # db-schemas (Database schema files)
 scrapper/db-schemas/
 
+context/
